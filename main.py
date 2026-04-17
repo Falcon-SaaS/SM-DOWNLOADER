@@ -1,10 +1,25 @@
+#!/usr/bin/env python3
+"""
+SM Downloader Bot - بوت تحميل الفيديوهات الاحترافي
+يدعم: YouTube, Instagram, Facebook, X (Twitter)
+"""
+
 import os
 import re
 import asyncio
 import logging
-import yt_dlp
 from typing import Dict, Optional, Tuple
 from datetime import datetime
+
+# محاولة استيراد yt-dlp مع معالجة الأخطاء
+try:
+    import yt_dlp
+except ImportError:
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "yt-dlp"])
+    import yt_dlp
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 from telegram.constants import ChatAction
@@ -39,10 +54,10 @@ PLATFORMS = {
         "emoji": "📘",
         "patterns": [r"(facebook\.com|fb\.com|fb\.watch)"]
     },
-    "X": {
+    "x": {
         "name": "X",
         "emoji": "🐦",
-        "patterns": [r"(x\.com)"]
+        "patterns": [r"(x\.com|twitter\.com)"]
     }
 }
 
@@ -50,16 +65,16 @@ PLATFORMS = {
 def get_ydl_opts(quality: str = "medium"):
     quality_settings = {
         "high": {
-            'format': 'bestvideo[height<=1080][ext=mp4]+bestaudio[ext=m4a]/best[height<=1080][ext=mp4]/best[height<=1080]',
-            'outtmpl': 'downloads/%(title)s_%(id)s_hd.%(ext)s'
+            'format': 'best[height<=1080][ext=mp4]/best[height<=1080]',
+            'outtmpl': 'downloads/%(title)s_hd.%(ext)s'
         },
         "medium": {
-            'format': 'best[height<=720][ext=mp4]/best[height<=720]/best',
-            'outtmpl': 'downloads/%(title)s_%(id)s_sd.%(ext)s'
+            'format': 'best[height<=720][ext=mp4]/best[height<=720]',
+            'outtmpl': 'downloads/%(title)s_sd.%(ext)s'
         },
         "low": {
             'format': 'worst[ext=mp4]/worst',
-            'outtmpl': 'downloads/%(title)s_%(id)s_low.%(ext)s'
+            'outtmpl': 'downloads/%(title)s_low.%(ext)s'
         }
     }
     
@@ -71,7 +86,7 @@ def get_ydl_opts(quality: str = "medium"):
         'ignoreerrors': True,
         'no_color': True,
         'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'socket_timeout': 30,
+        'socket_timeout': 60,
         'retries': 10,
         'fragment_retries': 10,
     })
@@ -158,7 +173,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("🎬 High (1080p)", callback_data="quality_high"),
-            InlineKeyboardButton("🎬 Medium (720p)", callback_data="quality_medium"),
+            InlineKeyboardButton("📱 Medium (720p)", callback_data="quality_medium"),
         ],
         [
             InlineKeyboardButton("📀 Low (480p)", callback_data="quality_low"),
@@ -166,12 +181,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     
     await update.message.reply_text(
-        f" اررررحب {user.first_name}!\n\n"
-        f"SM Downloader Bot \n\n"
+        f"✨ اررررحب {user.first_name}!\n\n"
+        f"🚀 SM Downloader Bot \n\n"
         f"📅 {datetime.now().strftime('%Y-%m-%d')}\n\n"
-        f"! Support: \n"
-        f"> YouTube | Instagram | Facebook | X\n\n"
-        f"! Choose Quality: ",
+        f"📌 Support: \n"
+        f"YouTube | Instagram | Facebook | X\n\n"
+        f"⚡ Choose Quality: ",
         reply_markup=keyboard
     )
     context.user_data['waiting_for_quality'] = True
@@ -201,7 +216,7 @@ async def quality_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(
         f"✅ تم اختيار الجودة: {quality.upper()}\n\n"
-        f"اختر المنصة:",
+        f"📌 اختر المنصة:",
         reply_markup=reply_markup
     )
 
@@ -215,10 +230,9 @@ async def platform_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await query.edit_message_text(
         f"{PLATFORMS[platform_key]['emoji']} تم اختيار {PLATFORMS[platform_key]['name']}\n\n"
-        f"الجودة: {quality.upper()}\n\n"
-        f"الآن أرسل رابط الفيديو\n\n"
-
-        f"مثال:\nhttps://www.{platform_key}.com/..."
+        f"⚙️ الجودة: {quality.upper()}\n\n"
+        f"📎 الآن أرسل رابط الفيديو\n\n"
+        f"💡 مثال:\nhttps://www.{platform_key}.com/..."
     )
 
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -268,12 +282,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     quality = context.user_data.get('download_quality', 'medium')
     
-    # رسالة التحميل بدون Markdown معقد
     progress_msg = await update.message.reply_text(
-        f"جاري تحميل الفيديو...\n"
-        f"المنصة: {PLATFORMS[platform]['name']}\n"
-        f"الجودة: {quality.upper()}\n"
-        f"الرجاء الانتظار..."
+        f"📥 جاري تحميل الفيديو...\n"
+        f"📌 المنصة: {PLATFORMS[platform]['name']}\n"
+        f"⚙️ الجودة: {quality.upper()}\n"
+        f"⏳ الرجاء الانتظار..."
     )
     
     await update.message.chat.send_action(action=ChatAction.UPLOAD_VIDEO)
@@ -283,11 +296,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not filename or not os.path.exists(filename):
         await progress_msg.edit_text(
             "❌ فشل التحميل!\n\n"
-            "الأسباب المحتملة:\n"
+            "📛 الأسباب المحتملة:\n"
             "1- الرابط غير صحيح\n"
             "2- الفيديو خاص أو محذوف\n"
             "3- المنصة غير مدعومة\n\n"
-            "استخدم /start للمحاولة مرة أخرى"
+            "🔄 استخدم /start للمحاولة مرة أخرى"
         )
         return
     
@@ -296,8 +309,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if file_size > 50:
         await progress_msg.edit_text(
             f"⚠️ الفيديو كبير جداً!\n"
-            f"الحجم: {file_size:.1f}MB (الحد 50MB)\n\n"
-            f"جرب جودة أقل من /start"
+            f"📁 الحجم: {file_size:.1f}MB (الحد 50MB)\n\n"
+            f"💡 جرب جودة أقل من /start"
         )
         os.remove(filename)
         return
@@ -305,9 +318,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     video_title = info.get('title', 'فيديو')[:50] if info else 'فيديو'
     
     await progress_msg.edit_text(
-        f"جاري رفع الفيديو...\n"
-        f"العنوان: {video_title}\n"
-        f"الحجم: {file_size:.1f}MB"
+        f"📤 جاري رفع الفيديو...\n"
+        f"🎥 العنوان: {video_title}\n"
+        f"📦 الحجم: {file_size:.1f}MB"
     )
     
     try:
@@ -315,11 +328,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_video(
                 video=video_file,
                 caption=f"✅ تم التحميل بنجاح!\n\n"
-                       f"المصدر: {PLATFORMS[platform]['name']}\n"
-                       f"العنوان: {video_title}\n"
-                       f"الجودة: {quality.upper()}\n"
-                       f"التاريخ: {datetime.now().strftime('%Y-%m-%d')}\n\n"
-                       f"بوت التحميل الاحترافي",
+                       f"📌 المصدر: {PLATFORMS[platform]['name']}\n"
+                       f"🎥 العنوان: {video_title}\n"
+                       f"⚙️ الجودة: {quality.upper()}\n"
+                       f"📅 التاريخ: {datetime.now().strftime('%Y-%m-%d')}\n\n"
+                       f"🚀 SM Downloader Bot",
                 supports_streaming=True
             )
         
@@ -330,8 +343,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error sending video: {e}")
         await progress_msg.edit_text(
             f"❌ حدث خطأ أثناء رفع الفيديو!\n"
-            f"الخطأ: {str(e)[:100]}\n\n"
-            f"حاول مرة أخرى باستخدام /start"
+            f"📛 الخطأ: {str(e)[:100]}\n\n"
+            f"🔄 حاول مرة أخرى باستخدام /start"
         )
         if os.path.exists(filename):
             os.remove(filename)
@@ -342,20 +355,21 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📖 دليل الاستخدام:\n\n"
-        "1- استخدم /start لبدء البوت\n"
-        "2- اختر جودة التحميل\n"
-        "3- اختر المنصة\n"
-        "4- أرسل رابط الفيديو\n\n"
-        "المنصات المدعومة:\n"
+        "📖 *دليل الاستخدام:*\n\n"
+        "1️⃣ استخدم /start لبدء البوت\n"
+        "2️⃣ اختر جودة التحميل\n"
+        "3️⃣ اختر المنصة\n"
+        "4️⃣ أرسل رابط الفيديو\n\n"
+        "*المنصات المدعومة:*\n"
         "✅ YouTube\n"
         "✅ Instagram\n"
         "✅ Facebook\n"
-        "✅ X\n"
-        "الأوامر:\n"
+        "✅ X (Twitter)\n\n"
+        "*الأوامر:*\n"
         "/start - بدء البوت\n"
         "/cancel - إلغاء العملية\n"
-        "/help - عرض المساعدة"
+        "/help - عرض المساعدة",
+        parse_mode="Markdown"
     )
 
 # ================ التشغيل ================
@@ -369,28 +383,33 @@ async def post_init(application: Application):
     print("✅ تم إعداد الأوامر")
 
 def main():
+    # إنشاء مجلد التحميلات
     if not os.path.exists('downloads'):
         os.makedirs('downloads')
         print("📁 تم إنشاء مجلد التحميلات")
     
+    # إنشاء التطبيق
     application = Application.builder().token(BOT_TOKEN).build()
     
+    # إضافة المعالجات
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("cancel", cancel))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     
+    # إعداد ما بعد التشغيل
     application.post_init = post_init
     
     print("=" * 50)
-    print("🚀 البوت يعمل الآن!")
+    print("🚀 SM Downloader Bot يعمل الآن!")
     print("=" * 50)
     print(f"✅ المنصات: {len(PLATFORMS)}")
     print(f"🎬 {', '.join(PLATFORMS.keys())}")
     print("=" * 50)
     
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # تشغيل البوت (بدون allowed_updates لتفادي مشاكل Python 3.13)
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
